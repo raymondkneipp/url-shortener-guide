@@ -169,7 +169,7 @@ notices</b>. That decoupling is the entire point of Kafka, and a URL shortener m
 <p>Install these once. The goal of this step is just a working toolbelt; nothing to "solve" yet.</p>
 <ul class="clean">
   <li><b>Python 3.12+</b> and <a href="https://docs.astral.sh/uv/"><code>uv</code></a> — fast package & venv manager (replaces pip/venv)</li>
-  <li><b>Docker Desktop</b> (or Docker Engine) — runs containers and the local cluster</li>
+  <li><b>Podman</b> (or Docker) — builds/runs containers and backs the local cluster</li>
   <li><b>kubectl</b> — the Kubernetes CLI</li>
   <li><b>kind</b> (Kubernetes-in-Docker) or <b>minikube</b> — a throwaway local cluster</li>
   <li>Optional: <b>k9s</b> for a nice terminal UI over the cluster</li>
@@ -179,13 +179,14 @@ notices</b>. That decoupling is the entire point of Kafka, and a URL shortener m
 <pre><code class="language-bash"># Core tools (uv = fast Python package & venv manager from Astral)
 brew install python uv kubectl kind k9s
 # No Homebrew? curl -LsSf https://astral.sh/uv/install.sh | sh
-# Docker Desktop (cask) — or install from docker.com
-brew install --cask docker
+# Podman — the container engine (macOS runs it inside a lightweight VM)
+brew install podman
+podman machine init && podman machine start
 
 # Verify
 python3 --version
 uv --version
-docker version
+podman version
 kubectl version --client
 kind version</code></pre>
 </div></details>
@@ -371,7 +372,7 @@ config principle, and it's what lets a ConfigMap/Secret swap the values in later
 <details><summary>Solution — start Postgres, migrate, smoke-test <span class="kind">commands</span></summary>
 <div class="body">
 <pre><code class="language-bash"># 1. A local Postgres (matches the settings defaults)
-docker run -d --name pg \
+podman run -d --name pg \
   -e POSTGRES_DB=shortener -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
   -p 5432:5432 postgres:16
 
@@ -515,7 +516,7 @@ click_count + 1</code>, which is atomic.</div>
 <pre><code class="language-bash"># A single-node Kafka in KRaft mode (no Zookeeper needed).
 # The official Apache image boots a working localhost broker with NO env vars —
 # it defaults to advertising PLAINTEXT://localhost:9092 and auto-formats storage.
-docker run -d --name kafka -p 9092:9092 apache/kafka:3.8.0
+podman run -d --name kafka -p 9092:9092 apache/kafka:3.8.0
 
 # Terminal A: run the consumer
 uv run python manage.py consume_clicks
@@ -581,17 +582,27 @@ Kubernetes the web Deployment uses the default <code>CMD</code>; the consumer De
 your image, and load it into the cluster (kind can't pull from your laptop's Docker by default).</div>
 <details><summary>Solution — cluster + image load <span class="kind">commands</span></summary>
 <div class="body">
-<pre><code class="language-bash">kind create cluster --name urlshort
+<pre><code class="language-bash"># Tell kind to use Podman for EVERY kind command (export once per shell).
+export KIND_EXPERIMENTAL_PROVIDER=podman
+
+kind create cluster --name urlshort
 kubectl create namespace urlshort
 kubectl config set-context --current --namespace=urlshort
 
-# Build and push the image INTO the kind cluster's node
-docker build -t url-shortener:dev .
-kind load docker-image url-shortener:dev --name urlshort</code></pre>
-<div class="note gotcha"><span class="tag">Gotcha</span>
-<code>kind load docker-image</code> is the step everyone forgets. A kind "node" is itself a container
-with its own image store — it cannot see images in your host Docker. Skip this and your pods fail with
-<code>ErrImagePull</code>. (With minikube the equivalent is <code>minikube image load</code>.)</div>
+# Build the image with Podman...
+podman build -t url-shortener:dev .
+
+# ...then load it into the kind node. With Podman use an image ARCHIVE —
+# "kind load docker-image" assumes a Docker daemon and mis-detects Podman.
+podman save url-shortener:dev -o url-shortener.tar
+kind load image-archive url-shortener.tar --name urlshort</code></pre>
+<div class="note gotcha"><span class="tag">Gotcha — loading is mandatory</span>
+A kind "node" is itself a container with its own image store — it cannot see images in your host
+Podman. Skip the load step and your pods fail with <code>ErrImagePull</code>.
+<b>Podman on macOS</b> runs inside a VM (<code>podman machine</code>), and kind + Podman is happiest on
+Linux — it may need a rootful machine (<code>podman machine set --rootful &amp;&amp; podman machine start</code>).
+If it keeps fighting you: <code>minikube --driver=podman</code>, push to a real registry, or use Docker
+just for the cluster.</div>
 </div></details>
 
 <!-- ============================================================= -->
@@ -912,7 +923,7 @@ kind delete cluster --name urlshort
 kubectl delete namespace urlshort
 
 # Local dev containers
-docker rm -f pg kafka</code></pre>
+podman rm -f pg kafka</code></pre>
 </div></details>
 
 <footer>
