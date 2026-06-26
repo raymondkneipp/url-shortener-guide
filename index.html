@@ -54,6 +54,13 @@
   pre{background:var(--code)!important;border:1px solid var(--border);border-radius:8px;
     padding:14px;overflow:auto;margin:10px 0;font-size:13.5px;line-height:1.5}
   pre code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  pre{position:relative}
+  .copy-btn{position:absolute;top:8px;right:8px;background:var(--panel2);color:var(--muted);
+    border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;
+    opacity:0;transition:opacity .12s;font-family:system-ui,sans-serif}
+  pre:hover .copy-btn{opacity:1}
+  .copy-btn:hover{color:var(--text);border-color:var(--accent)}
+  .copy-btn.done{color:var(--ok);border-color:var(--ok);opacity:1}
   .path{font-family:ui-monospace,monospace;font-size:12.5px;color:var(--accent2);
     margin:8px 0 -4px;display:block}
   .toolbar{position:sticky;top:0;z-index:5;background:rgba(15,23,42,.92);
@@ -122,7 +129,8 @@
   <li><a href="#k8s-web">14 · Deploy the web app</a></li>
   <li><a href="#k8s-worker">15 · Deploy the consumer</a></li>
   <li><a href="#k8s-ingress">16 · Expose it & test end-to-end</a></li>
-  <li><a href="#recap">17 · Recap, extensions, cleanup</a></li>
+  <li><a href="#devloop">17 · Dev workflow (Makefile)</a></li>
+  <li><a href="#recap">18 · Recap, extensions, cleanup</a></li>
 </ol>
 
 <!-- ============================================================= -->
@@ -895,7 +903,88 @@ When something's wrong: <code>kubectl get pods</code> (status), <code>kubectl de
 </div></details>
 
 <!-- ============================================================= -->
-<h2 id="recap"><span class="num">17</span> · Recap, extensions & cleanup</h2>
+<!-- ============================================================= -->
+<h2 id="devloop"><span class="num">17</span> · Dev workflow (Makefile)</h2>
+<p>Stop retyping the build/load/restart dance. This <code>Makefile</code> encodes every lifecycle
+command — <code>make up</code> to bootstrap from nothing, <code>make redeploy</code> after a code
+change, <code>make down</code> to tear it all down.</p>
+
+<div class="note gotcha"><span class="tag">Gotcha — Makefiles need real TABs</span>
+Every indented recipe line must start with a literal <b>tab</b>, not spaces, or Make dies with
+<code>missing separator</code>. Use the <b>Copy</b> button below — it preserves tabs; hand-selecting
+in a browser usually converts them to spaces. If a pasted Makefile breaks, re-tab it in place:
+<code>sed -i '' -E 's/^ +/\t/' Makefile</code> (drop the <code>''</code> on Linux).</div>
+
+<details open><summary>Solution — <code>Makefile</code> <span class="kind">use the Copy button →</span></summary>
+<div class="body">
+<span class="path">Makefile (project root, next to manage.py)</span>
+<pre><code class="language-makefile">CLUSTER := urlshort
+NS      := urlshort
+IMG     := url-shortener:dev
+PODMAN  := podman
+export KIND_EXPERIMENTAL_PROVIDER := podman
+
+.PHONY: up cluster build load infra migrate deploy redeploy logs forward down reset
+
+## First-time bootstrap: cluster -&gt; image -&gt; infra -&gt; migrate -&gt; app
+up: cluster load infra migrate deploy
+	@echo "Up. Run 'make forward' then open http://localhost:8000"
+
+cluster:
+	@$(PODMAN) info &gt;/dev/null 2&gt;&amp;1 || { echo "Podman not running -- run: podman machine start"; exit 1; }
+	kind get clusters | grep -q $(CLUSTER) || kind create cluster --name $(CLUSTER) --wait 90s
+	kubectl create namespace $(NS) 2&gt;/dev/null || true
+	kubectl config set-context --current --namespace=$(NS)
+
+build:
+	$(PODMAN) build -t $(IMG) .
+
+load: build
+	$(PODMAN) save $(IMG) -o .img.tar
+	kind load image-archive .img.tar --name $(CLUSTER)
+	rm -f .img.tar
+
+infra:
+	kubectl apply -f k8s/postgres.yaml -f k8s/kafka.yaml -f k8s/app-config.yaml
+	kubectl wait --for=condition=available deploy/postgres deploy/kafka --timeout=180s
+
+migrate:
+	kubectl delete job migrate --ignore-not-found
+	kubectl apply -f k8s/migrate-job.yaml
+	kubectl wait --for=condition=complete job/migrate --timeout=180s
+
+deploy:
+	kubectl apply -f k8s/web.yaml -f k8s/consumer.yaml
+
+redeploy: load
+	kubectl rollout restart deploy/web deploy/consumer
+
+logs:
+	kubectl logs -f deploy/consumer
+
+forward:
+	kubectl port-forward service/web 8000:80
+
+down:
+	kind delete cluster --name $(CLUSTER)
+
+reset:
+	kubectl delete -f k8s/ --ignore-not-found</code></pre>
+<div class="note why"><span class="tag">The command vocabulary</span>
+<ul class="clean">
+  <li><code>make up</code> — first run: create cluster, build + load image, apply infra, migrate, deploy. Idempotent.</li>
+  <li><code>make redeploy</code> — after a code change: rebuild → reload → rolling-restart the pods.</li>
+  <li><code>make migrate</code> — re-run migrations after a model change.</li>
+  <li><code>make forward</code> — port-forward <code>web</code> to localhost:8000.</li>
+  <li><code>make logs</code> — tail the consumer · <code>make down</code> — delete the cluster · <code>make reset</code> — wipe app objects, keep the cluster.</li>
+</ul>
+The <code>cluster</code> target fails fast with a clear message if Podman isn't running (no silent
+<code>|| true</code> masking the real error), and <code>kind create --wait 90s</code> blocks until the
+API server is ready — which is what prevents the <code>failed to download openapi</code> race.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="recap"><span class="num">18</span> · Recap, extensions & cleanup</h2>
 <p>You just built and orchestrated a four-service distributed system. Make sure you can explain each
 of these in your own words — that's the real deliverable:</p>
 <ul class="clean">
@@ -941,6 +1030,24 @@ podman rm -f pg kafka</code></pre>
   const all = () => document.querySelectorAll("details");
   document.getElementById("expandAll").onclick = () => all().forEach(d => d.open = true);
   document.getElementById("collapseAll").onclick = () => all().forEach(d => d.open = false);
+
+  // Copy buttons on every code block. Copies textContent, which preserves the
+  // literal tabs the Makefile needs — hand-selecting in a browser does not.
+  document.querySelectorAll("pre").forEach((pre) => {
+    const btn = document.createElement("button");
+    btn.className = "copy-btn";
+    btn.type = "button";
+    btn.textContent = "Copy";
+    btn.addEventListener("click", () => {
+      const code = pre.querySelector("code") || pre;
+      navigator.clipboard.writeText(code.textContent).then(() => {
+        btn.textContent = "Copied";
+        btn.classList.add("done");
+        setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1500);
+      });
+    });
+    pre.appendChild(btn);
+  });
 </script>
 </body>
 </html>
