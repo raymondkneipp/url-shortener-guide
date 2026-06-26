@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Build a URL Shortener — Django · Postgres · Kafka · Kubernetes</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --text:#e2e8f0; --muted:#94a3b8;
+    --accent:#38bdf8; --accent2:#a78bfa; --border:#334155; --ok:#34d399; --warn:#fbbf24;
+    --code:#0b1220;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.65}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 120px}
+  header.hero{padding:28px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px}
+  h1{font-size:30px;margin:0 0 8px;line-height:1.2}
+  h1 .sub{display:block;font-size:15px;color:var(--muted);font-weight:400;margin-top:8px}
+  h2{font-size:22px;margin:44px 0 6px;padding-top:12px;border-top:1px dashed var(--border)}
+  h2 .num{color:var(--accent);font-variant-numeric:tabular-nums}
+  h3{font-size:17px;margin:26px 0 6px;color:var(--accent2)}
+  p{margin:10px 0}
+  a{color:var(--accent)}
+  code:not(pre code){background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:.92em}
+  .lead{color:var(--muted)}
+  .stack{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+  .chip{background:var(--panel);border:1px solid var(--border);border-radius:999px;
+    padding:5px 12px;font-size:13px;color:var(--muted)}
+  .chip b{color:var(--text)}
+  .task{background:var(--panel);border-left:3px solid var(--accent);border-radius:8px;
+    padding:12px 16px;margin:16px 0}
+  .task b{color:var(--accent)}
+  .note{background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);
+    border-radius:8px;padding:10px 14px;margin:14px 0;font-size:14px}
+  .note.why{border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.08)}
+  .note.gotcha{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08)}
+  .note .tag{font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:11px;
+    display:block;margin-bottom:2px;color:var(--accent2)}
+  .note.gotcha .tag{color:var(--warn)}
+  details{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    margin:12px 0;overflow:hidden}
+  details[open]{border-color:var(--accent)}
+  summary{cursor:pointer;padding:11px 16px;font-weight:600;list-style:none;
+    display:flex;align-items:center;gap:10px;user-select:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▶";color:var(--accent);font-size:11px;transition:transform .15s}
+  details[open] summary::before{transform:rotate(90deg)}
+  summary:hover{background:var(--panel2)}
+  summary .kind{margin-left:auto;font-size:11px;color:var(--muted);font-weight:500;
+    text-transform:uppercase;letter-spacing:.04em}
+  details .body{padding:0 16px 14px}
+  pre{background:var(--code)!important;border:1px solid var(--border);border-radius:8px;
+    padding:14px;overflow:auto;margin:10px 0;font-size:13.5px;line-height:1.5}
+  pre code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .path{font-family:ui-monospace,monospace;font-size:12.5px;color:var(--accent2);
+    margin:8px 0 -4px;display:block}
+  .toolbar{position:sticky;top:0;z-index:5;background:rgba(15,23,42,.92);
+    backdrop-filter:blur(6px);border-bottom:1px solid var(--border);
+    margin:0 -20px 0;padding:10px 20px;display:flex;gap:10px;align-items:center}
+  .toolbar button{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer}
+  .toolbar button:hover{border-color:var(--accent)}
+  .toolbar .grow{flex:1}
+  .toc{columns:2;gap:24px;font-size:14px;margin:12px 0 0;padding:0;list-style:none}
+  .toc li{margin:4px 0;break-inside:avoid}
+  .toc a{color:var(--muted);text-decoration:none}
+  .toc a:hover{color:var(--accent)}
+  ul.clean{margin:10px 0;padding-left:20px}
+  ul.clean li{margin:5px 0}
+  .arch{background:var(--code);border:1px solid var(--border);border-radius:8px;
+    padding:16px;overflow:auto;font-family:ui-monospace,monospace;font-size:12.5px;
+    color:var(--muted);white-space:pre;line-height:1.5}
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--border);
+    color:var(--muted);font-size:13px}
+  kbd{background:var(--panel2);border:1px solid var(--border);border-bottom-width:2px;
+    border-radius:5px;padding:1px 6px;font-size:12px;font-family:ui-monospace,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>Build a URL Shortener
+    <span class="sub">A hands-on path through <b>Django</b> · <b>PostgreSQL</b> · <b>Apache Kafka</b> · <b>Kubernetes</b></span>
+  </h1>
+  <div class="stack">
+    <span class="chip"><b>Django</b> + DRF — API & redirects</span>
+    <span class="chip"><b>Postgres</b> — durable storage</span>
+    <span class="chip"><b>Kafka</b> — async click events</span>
+    <span class="chip"><b>Kubernetes</b> — orchestration</span>
+  </div>
+  <p class="lead">Every step gives you the <b>goal</b> and the <b>why</b> in the open, but keeps the
+  code and commands collapsed. Try to solve each task yourself first — then click to reveal the
+  reference solution and compare.</p>
+</header>
+
+<div class="toolbar">
+  <button id="expandAll">Expand all</button>
+  <button id="collapseAll">Collapse all</button>
+  <span class="grow"></span>
+  <span style="font-size:12px;color:var(--muted)">Click ▶ to reveal a solution</span>
+</div>
+
+<h3 style="margin-top:22px">Contents</h3>
+<ol class="toc">
+  <li><a href="#arch">0 · Architecture & how it fits together</a></li>
+  <li><a href="#prereq">1 · Prerequisites</a></li>
+  <li><a href="#scaffold">2 · Scaffold the Django project</a></li>
+  <li><a href="#model">3 · The data model & short codes</a></li>
+  <li><a href="#api">4 · Create & redirect endpoints</a></li>
+  <li><a href="#localdb">5 · Run it locally on Postgres</a></li>
+  <li><a href="#producer">6 · Publish click events to Kafka</a></li>
+  <li><a href="#consumer">7 · The analytics consumer</a></li>
+  <li><a href="#docker">8 · Containerize both services</a></li>
+  <li><a href="#cluster">9 · A local Kubernetes cluster</a></li>
+  <li><a href="#k8s-pg">10 · Deploy Postgres</a></li>
+  <li><a href="#k8s-kafka">11 · Deploy Kafka</a></li>
+  <li><a href="#k8s-config">12 · Config & Secrets</a></li>
+  <li><a href="#k8s-migrate">13 · Run migrations as a Job</a></li>
+  <li><a href="#k8s-web">14 · Deploy the web app</a></li>
+  <li><a href="#k8s-worker">15 · Deploy the consumer</a></li>
+  <li><a href="#k8s-ingress">16 · Expose it & test end-to-end</a></li>
+  <li><a href="#recap">17 · Recap, extensions, cleanup</a></li>
+</ol>
+
+<!-- ============================================================= -->
+<h2 id="arch"><span class="num">0</span> · Architecture & how it fits together</h2>
+<p>Before any code, hold the whole picture in your head. A request to create a link is a normal
+synchronous write. But the <i>redirect</i> path is where the interesting design lives: you must
+redirect the user <b>instantly</b>, yet you also want to record analytics. You do <b>not</b> want
+analytics work slowing the redirect. That tension is exactly what Kafka solves.</p>
+
+<div class="arch">
+                       ┌─────────────────────────────┐
+   POST /api/shorten   │      Django + DRF (web)      │   write
+   ───────────────────▶│  create ShortURL row        │──────────▶  ┌────────────┐
+                       │                             │             │ PostgreSQL │
+   GET /&lt;code&gt;          │  look up code, 302 redirect  │◀──────────  └────────────┘
+   ───────────────────▶│  + fire-and-forget event    │   read           ▲
+                       └──────────────┬──────────────┘                  │ update
+                                      │ produce "url-clicks"            │ click_count
+                                      ▼                                  │
+                              ┌───────────────┐         consume   ┌─────┴────────┐
+                              │  Apache Kafka │────────────────▶ │  Consumer    │
+                              │  topic: clicks│   (own group)     │  (worker pod)│
+                              └───────────────┘                   └──────────────┘
+
+        All of the above run as separate Deployments inside one Kubernetes cluster.
+</div>
+
+<div class="note why"><span class="tag">Why this shape</span>
+The redirect handler publishes a tiny event and returns immediately — single-digit milliseconds.
+A completely separate consumer process reads those events at its own pace and updates counts.
+If the consumer is slow, down, or you add ten more consumers later, <b>the redirect path never
+notices</b>. That decoupling is the entire point of Kafka, and a URL shortener makes it tangible.</p></div>
+
+<ul class="clean">
+  <li><b>Django</b> teaches you the request/response core: models, migrations, an API, routing.</li>
+  <li><b>Postgres</b> is your source of truth — the link table lives here.</li>
+  <li><b>Kafka</b> teaches producers, topics, partitions, and consumer groups via click events.</li>
+  <li><b>Kubernetes</b> teaches Deployments, Services, Secrets, ConfigMaps, Jobs, and Ingress by
+    running all four pieces together.</li>
+</ul>
+
+<!-- ============================================================= -->
+<h2 id="prereq"><span class="num">1</span> · Prerequisites</h2>
+<p>Install these once. The goal of this step is just a working toolbelt; nothing to "solve" yet.</p>
+<ul class="clean">
+  <li><b>Python 3.12+</b> and <code>pip</code></li>
+  <li><b>Docker Desktop</b> (or Docker Engine) — runs containers and the local cluster</li>
+  <li><b>kubectl</b> — the Kubernetes CLI</li>
+  <li><b>kind</b> (Kubernetes-in-Docker) or <b>minikube</b> — a throwaway local cluster</li>
+  <li>Optional: <b>k9s</b> for a nice terminal UI over the cluster</li>
+</ul>
+<details><summary>Install commands (macOS / Homebrew) <span class="kind">commands</span></summary>
+<div class="body">
+<pre><code class="language-bash"># Core tools
+brew install python kubectl kind k9s
+# Docker Desktop (cask) — or install from docker.com
+brew install --cask docker
+
+# Verify
+python3 --version
+docker version
+kubectl version --client
+kind version</code></pre>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="scaffold"><span class="num">2</span> · Scaffold the Django project</h2>
+<p>Create an isolated environment, install Django + Django REST Framework, and generate a project
+named <code>config</code> with an app named <code>shortener</code>.</p>
+<div class="task"><b>Your task:</b> stand up an empty Django project + a <code>shortener</code> app,
+and register DRF and the app in settings. Try it from memory before peeking.</div>
+<details><summary>Solution — project setup <span class="kind">commands + code</span></summary>
+<div class="body">
+<pre><code class="language-bash">mkdir url-shortener && cd url-shortener
+python3 -m venv .venv && source .venv/bin/activate
+
+pip install "Django>=5.0" djangorestframework psycopg2-binary confluent-kafka gunicorn
+pip freeze > requirements.txt
+
+# Project named "config" so settings live at config/settings.py
+django-admin startproject config .
+python manage.py startapp shortener</code></pre>
+<span class="path">config/settings.py — add to INSTALLED_APPS</span>
+<pre><code class="language-python">INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "rest_framework",      # &lt;-- DRF
+    "shortener",           # &lt;-- our app
+]</code></pre>
+<div class="note why"><span class="tag">Why "config"</span>
+Naming the project package <code>config</code> (instead of repeating the repo name) is a common
+convention — your settings/urls/wsgi live in an obvious place and the import paths read cleanly
+(<code>config.wsgi</code>, <code>config.settings</code>).</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="model"><span class="num">3</span> · The data model & short codes</h2>
+<p>A short URL needs: the generated <code>short_code</code>, the <code>original_url</code>, a
+<code>created_at</code> timestamp, and a <code>click_count</code>. The interesting bit is generating
+a collision-free short code.</p>
+<div class="task"><b>Your task:</b> write a <code>ShortURL</code> model. Auto-generate a 7-character
+base62 code on first save, retrying if it already exists. Add a DB index on the code (you'll look
+up by it on every redirect).</div>
+<details><summary>Solution — <code>shortener/models.py</code> <span class="kind">code</span></summary>
+<div class="body">
+<span class="path">shortener/models.py</span>
+<pre><code class="language-python">import secrets
+import string
+from django.db import models
+
+ALPHABET = string.ascii_letters + string.digits  # 62 chars → base62
+
+
+def generate_short_code(length: int = 7) -> str:
+    return "".join(secrets.choice(ALPHABET) for _ in range(length))
+
+
+class ShortURL(models.Model):
+    short_code = models.CharField(max_length=10, unique=True, db_index=True)
+    original_url = models.URLField(max_length=2048)
+    created_at = models.DateTimeField(auto_now_add=True)
+    click_count = models.PositiveIntegerField(default=0)
+
+    def save(self, *args, **kwargs):
+        if not self.short_code:
+            code = generate_short_code()
+            # Retry on the (very rare) collision before inserting.
+            while ShortURL.objects.filter(short_code=code).exists():
+                code = generate_short_code()
+            self.short_code = code
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.short_code} → {self.original_url}"</code></pre>
+<div class="note why"><span class="tag">Why base62 + secrets</span>
+62<sup>7</sup> ≈ 3.5 trillion combinations, so random collisions are astronomically unlikely even
+with millions of links — yet the code stays short and URL-safe (letters + digits only).
+<code>secrets</code> (not <code>random</code>) gives cryptographically strong, unguessable codes so
+people can't trivially enumerate everyone's links.</div>
+<div class="note gotcha"><span class="tag">Gotcha</span>
+The <code>unique=True</code> constraint is your real safety net. The Python-side retry loop avoids
+most collisions, but the database constraint is what <i>guarantees</i> uniqueness under concurrency.
+At massive scale you'd switch to counter-based or Snowflake-style IDs to skip the check entirely.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="api"><span class="num">4</span> · Create & redirect endpoints</h2>
+<p>Two routes: <code>POST /api/shorten</code> returns a new short code (JSON, via DRF), and
+<code>GET /&lt;code&gt;</code> issues a 302 redirect to the original URL.</p>
+<div class="task"><b>Your task:</b> build a serializer, a create view, and a redirect view, then wire
+the URLs. Leave the Kafka call as a <code>TODO</code> for now — you'll fill it in two steps later.</div>
+<details><summary>Solution — serializer <span class="kind">code</span></summary>
+<div class="body">
+<span class="path">shortener/serializers.py</span>
+<pre><code class="language-python">from rest_framework import serializers
+from .models import ShortURL
+
+
+class ShortURLSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShortURL
+        fields = ["short_code", "original_url", "created_at", "click_count"]
+        # The client only supplies original_url; the rest are server-owned.
+        read_only_fields = ["short_code", "created_at", "click_count"]</code></pre>
+</div></details>
+<details><summary>Solution — views <span class="kind">code</span></summary>
+<div class="body">
+<span class="path">shortener/views.py</span>
+<pre><code class="language-python">from django.shortcuts import get_object_or_404, redirect
+from django.views import View
+from rest_framework import generics
+
+from .models import ShortURL
+from .serializers import ShortURLSerializer
+# from .kafka_producer import publish_click_event   # &lt;-- enabled in step 6
+
+
+class CreateShortURL(generics.CreateAPIView):
+    """POST /api/shorten  → {original_url} ⇒ {short_code, ...}"""
+    queryset = ShortURL.objects.all()
+    serializer_class = ShortURLSerializer
+
+
+class RedirectToOriginal(View):
+    """GET /&lt;code&gt; → 302 to the original URL."""
+    def get(self, request, short_code):
+        obj = get_object_or_404(ShortURL, short_code=short_code)
+        # TODO (step 6): publish a click event to Kafka here.
+        return redirect(obj.original_url)</code></pre>
+</div></details>
+<details><summary>Solution — URL routing <span class="kind">code</span></summary>
+<div class="body">
+<span class="path">config/urls.py</span>
+<pre><code class="language-python">from django.contrib import admin
+from django.urls import path
+from shortener.views import CreateShortURL, RedirectToOriginal
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/shorten", CreateShortURL.as_view(), name="shorten"),
+    # Keep this LAST — it's a catch-all for any single path segment.
+    path("&lt;str:short_code&gt;", RedirectToOriginal.as_view(), name="redirect"),
+]</code></pre>
+<div class="note gotcha"><span class="tag">Gotcha</span>
+Order matters. The <code>&lt;str:short_code&gt;</code> pattern greedily matches one segment, so it
+must come <b>after</b> <code>admin/</code> and <code>api/shorten</code> or it would swallow them.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="localdb"><span class="num">5</span> · Run it locally on Postgres</h2>
+<p>Don't jump to Kubernetes yet. Get the app working against a local Postgres in Docker first — it's
+a far tighter feedback loop, and it proves your app logic before orchestration enters the picture.</p>
+<div class="task"><b>Your task:</b> point Django's <code>DATABASES</code> at Postgres via env vars,
+start a Postgres container, migrate, and create + follow a short link end to end.</div>
+<details><summary>Solution — settings (env-driven DB) <span class="kind">code</span></summary>
+<div class="body">
+<span class="path">config/settings.py — replace the default DATABASES block</span>
+<pre><code class="language-python">import os
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("POSTGRES_DB", "shortener"),
+        "USER": os.environ.get("POSTGRES_USER", "postgres"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+    }
+}
+
+# Allow the in-cluster Service name + local dev. Tighten for real deployments.
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")</code></pre>
+<div class="note why"><span class="tag">Why env vars</span>
+The exact same image will run locally, in CI, and in Kubernetes — only the environment changes.
+Reading every connection detail from the environment is the <a href="https://12factor.net/config">12-factor</a>
+config principle, and it's what lets a ConfigMap/Secret swap the values in later with zero code change.</div>
+</div></details>
+<details><summary>Solution — start Postgres, migrate, smoke-test <span class="kind">commands</span></summary>
+<div class="body">
+<pre><code class="language-bash"># 1. A local Postgres (matches the settings defaults)
+docker run -d --name pg \
+  -e POSTGRES_DB=shortener -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
+  -p 5432:5432 postgres:16
+
+# 2. Create tables
+python manage.py migrate
+
+# 3. Run the dev server
+python manage.py runserver
+
+# 4. In another terminal: create a short link
+curl -X POST http://localhost:8000/api/shorten \
+  -H "Content-Type: application/json" \
+  -d '{"original_url": "https://kubernetes.io/docs/home/"}'
+# → {"short_code":"aZ3k9Qw","original_url":"https://kubernetes.io/docs/home/",...}
+
+# 5. Follow it (-L follows the redirect)
+curl -L http://localhost:8000/aZ3k9Qw</code></pre>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="producer"><span class="num">6</span> · Publish click events to Kafka</h2>
+<p>Now the Kafka half. On every redirect, publish a small JSON event to a topic called
+<code>url-clicks</code>. This must be <b>fire-and-forget</b> — it cannot block the redirect.</p>
+<div class="task"><b>Your task:</b> write a <code>publish_click_event()</code> helper using
+<code>confluent-kafka</code>, then call it from the redirect view. The producer's bootstrap server
+must come from an env var.</div>
+<details><summary>Solution — producer helper <span class="kind">code</span></summary>
+<div class="body">
+<span class="path">shortener/kafka_producer.py</span>
+<pre><code class="language-python">import json
+import os
+from confluent_kafka import Producer
+
+# One Producer per process — it manages an internal background thread + buffer.
+_producer = Producer({
+    "bootstrap.servers": os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
+    "client.id": "url-shortener-web",
+})
+
+TOPIC = "url-clicks"
+
+
+def publish_click_event(short_code: str, ip: str | None, user_agent: str) -> None:
+    event = {"short_code": short_code, "ip": ip, "user_agent": user_agent}
+    try:
+        _producer.produce(TOPIC, key=short_code, value=json.dumps(event))
+        # poll(0) services delivery callbacks without blocking the request.
+        _producer.poll(0)
+    except BufferError:
+        # Local buffer full — drop the analytics event rather than fail the redirect.
+        pass</code></pre>
+<div class="note why"><span class="tag">Why key = short_code</span>
+Kafka routes all messages with the same key to the same partition, which preserves <b>per-link
+ordering</b> and lets you scale consumers horizontally while keeping one link's events together.
+And note we never raise on failure — analytics is best-effort; the redirect is sacred.</div>
+</div></details>
+<details><summary>Solution — wire it into the redirect view <span class="kind">code</span></summary>
+<div class="body">
+<span class="path">shortener/views.py — update RedirectToOriginal</span>
+<pre><code class="language-python">from .kafka_producer import publish_click_event
+
+class RedirectToOriginal(View):
+    def get(self, request, short_code):
+        obj = get_object_or_404(ShortURL, short_code=short_code)
+        publish_click_event(
+            short_code=short_code,
+            ip=request.META.get("REMOTE_ADDR"),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
+        return redirect(obj.original_url)</code></pre>
+<div class="note gotcha"><span class="tag">Gotcha</span>
+We deliberately do <b>not</b> increment <code>click_count</code> here. The whole point is that the
+web tier only <i>emits</i> the event; the consumer owns the write. Doing both would defeat the
+decoupling you're trying to learn.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="consumer"><span class="num">7</span> · The analytics consumer</h2>
+<p>A separate long-running process subscribes to <code>url-clicks</code>, and for each event bumps
+that link's <code>click_count</code>. Build it as a Django management command so it has full ORM
+access.</p>
+<div class="task"><b>Your task:</b> create <code>manage.py consume_clicks</code> that polls Kafka in
+a loop and applies an atomic <code>F('click_count') + 1</code> update per message.</div>
+<details><summary>Solution — management command <span class="kind">code</span></summary>
+<div class="body">
+<span class="path">shortener/management/commands/consume_clicks.py</span>
+<pre><code class="language-python"># Create the empty package files first:
+#   shortener/management/__init__.py
+#   shortener/management/commands/__init__.py
+import json
+import os
+from confluent_kafka import Consumer
+from django.core.management.base import BaseCommand
+from django.db.models import F
+from shortener.models import ShortURL
+
+
+class Command(BaseCommand):
+    help = "Consume url-clicks events and update click counts."
+
+    def handle(self, *args, **options):
+        consumer = Consumer({
+            "bootstrap.servers": os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
+            "group.id": "click-processor",          # the consumer GROUP
+            "auto.offset.reset": "earliest",        # start from the beginning the first time
+            "enable.auto.commit": True,
+        })
+        consumer.subscribe(["url-clicks"])
+        self.stdout.write(self.style.SUCCESS("Listening on url-clicks…"))
+
+        try:
+            while True:
+                msg = consumer.poll(1.0)
+                if msg is None:
+                    continue
+                if msg.error():
+                    self.stderr.write(f"Kafka error: {msg.error()}")
+                    continue
+
+                event = json.loads(msg.value())
+                # Atomic, race-free increment at the DB level.
+                ShortURL.objects.filter(short_code=event["short_code"]).update(
+                    click_count=F("click_count") + 1
+                )
+                self.stdout.write(f"+1 click → {event['short_code']}")
+        finally:
+            consumer.close()</code></pre>
+<div class="note why"><span class="tag">Why a consumer group</span>
+<code>group.id="click-processor"</code> is the magic word. Run <b>one</b> replica and it gets every
+message. Run <b>three</b> and Kafka automatically splits the topic's partitions across them — instant
+horizontal scaling, no code change. Add a <i>second</i> group later (say, "fraud-detector") and it
+gets its own independent copy of the whole stream. That's the superpower you're here to feel.</div>
+<div class="note gotcha"><span class="tag">Gotcha</span>
+<code>F("click_count") + 1</code> updates in the database, not in Python. If you did
+<code>obj.click_count += 1; obj.save()</code> you'd lose increments under concurrent clicks
+(read-modify-write race). The <code>F()</code> expression compiles to <code>SET click_count =
+click_count + 1</code>, which is atomic.</div>
+</div></details>
+<details><summary>Test the whole pipeline locally (before Kubernetes) <span class="kind">commands</span></summary>
+<div class="body">
+<pre><code class="language-bash"># A single-node Kafka in KRaft mode (no Zookeeper needed)
+docker run -d --name kafka -p 9092:9092 \
+  -e KAFKA_CFG_NODE_ID=0 \
+  -e KAFKA_CFG_PROCESS_ROLES=controller,broker \
+  -e KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@localhost:9093 \
+  -e KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
+  -e KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
+  -e KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+  -e KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
+  -e KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT \
+  -e ALLOW_PLAINTEXT_LISTENER=yes \
+  bitnami/kafka:3.7
+
+# Terminal A: run the consumer
+python manage.py consume_clicks
+
+# Terminal B: hit a short link a few times, then check the count
+curl -L http://localhost:8000/aZ3k9Qw
+curl http://localhost:8000/api/shorten -X POST -H "Content-Type: application/json" \
+  -d '{"original_url":"https://example.com"}'
+# Watch Terminal A print "+1 click" and the click_count rise.</code></pre>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="docker"><span class="num">8</span> · Containerize both services</h2>
+<p>The web app and the consumer share one codebase and one image — they differ only in the command
+they run (<code>gunicorn</code> vs <code>manage.py consume_clicks</code>).</p>
+<div class="task"><b>Your task:</b> write a single <code>Dockerfile</code> and a
+<code>.dockerignore</code>, then build the image into your local cluster's reach.</div>
+<details><summary>Solution — Dockerfile + .dockerignore <span class="kind">code</span></summary>
+<div class="body">
+<span class="path">Dockerfile</span>
+<pre><code class="language-docker">FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
+
+# Install deps first so this layer caches across code changes.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8000
+# Default command = web. The consumer Deployment overrides this.
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]</code></pre>
+<span class="path">.dockerignore</span>
+<pre><code class="language-text">.venv/
+__pycache__/
+*.pyc
+.git/
+db.sqlite3
+k8s/</code></pre>
+<div class="note why"><span class="tag">Why one image, two commands</span>
+Same code, same dependencies — building two images would just be two copies to keep in sync. In
+Kubernetes the web Deployment uses the default <code>CMD</code>; the consumer Deployment sets its own
+<code>command:</code>. One artifact, two roles.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="cluster"><span class="num">9</span> · A local Kubernetes cluster</h2>
+<p>Spin up a disposable cluster with <b>kind</b> and create a namespace to keep everything tidy.</p>
+<div class="task"><b>Your task:</b> create a kind cluster, make a <code>urlshort</code> namespace, build
+your image, and load it into the cluster (kind can't pull from your laptop's Docker by default).</div>
+<details><summary>Solution — cluster + image load <span class="kind">commands</span></summary>
+<div class="body">
+<pre><code class="language-bash">kind create cluster --name urlshort
+kubectl create namespace urlshort
+kubectl config set-context --current --namespace=urlshort
+
+# Build and push the image INTO the kind cluster's node
+docker build -t url-shortener:dev .
+kind load docker-image url-shortener:dev --name urlshort</code></pre>
+<div class="note gotcha"><span class="tag">Gotcha</span>
+<code>kind load docker-image</code> is the step everyone forgets. A kind "node" is itself a container
+with its own image store — it cannot see images in your host Docker. Skip this and your pods fail with
+<code>ErrImagePull</code>. (With minikube the equivalent is <code>minikube image load</code>.)</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="k8s-pg"><span class="num">10</span> · Deploy Postgres</h2>
+<p>Postgres is <i>stateful</i> — it needs storage that survives a pod restart. Use a
+PersistentVolumeClaim, a Deployment, and a Service so other pods can reach it by the name
+<code>postgres</code>.</p>
+<div class="task"><b>Your task:</b> write manifests for a Secret (credentials), a PVC, a Deployment
+mounting that PVC, and a Service named <code>postgres</code>.</div>
+<details><summary>Solution — <code>k8s/postgres.yaml</code> <span class="kind">manifest</span></summary>
+<div class="body">
+<span class="path">k8s/postgres.yaml</span>
+<pre><code class="language-yaml">apiVersion: v1
+kind: Secret
+metadata: { name: postgres-secret }
+type: Opaque
+stringData:
+  POSTGRES_DB: shortener
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: supersecret
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: postgres-pvc }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources: { requests: { storage: 1Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: postgres }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: postgres } }
+  template:
+    metadata: { labels: { app: postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          envFrom:
+            - secretRef: { name: postgres-secret }
+          ports: [{ containerPort: 5432 }]
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: postgres-pvc }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: postgres }
+spec:
+  selector: { app: postgres }
+  ports: [{ port: 5432, targetPort: 5432 }]</code></pre>
+<div class="note why"><span class="tag">Why a Service = DNS</span>
+The Service named <code>postgres</code> gives you a stable in-cluster hostname. Any pod can connect to
+<code>postgres:5432</code> and Kubernetes load-balances to the right pod — even after the pod restarts
+with a new IP. That hostname is exactly what you'll put in <code>POSTGRES_HOST</code> next.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="k8s-kafka"><span class="num">11</span> · Deploy Kafka</h2>
+<p>Run a single-broker Kafka in KRaft mode (no Zookeeper). For a learning project one broker is
+plenty; in production you'd use the <a href="https://strimzi.io/">Strimzi</a> operator instead.</p>
+<div class="task"><b>Your task:</b> deploy a one-node Kafka with a Service named <code>kafka</code>,
+advertising itself as <code>kafka:9092</code> so in-cluster clients can connect.</div>
+<details><summary>Solution — <code>k8s/kafka.yaml</code> <span class="kind">manifest</span></summary>
+<div class="body">
+<span class="path">k8s/kafka.yaml</span>
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata: { name: kafka }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: kafka } }
+  template:
+    metadata: { labels: { app: kafka } }
+    spec:
+      containers:
+        - name: kafka
+          image: bitnami/kafka:3.7
+          ports: [{ containerPort: 9092 }]
+          env:
+            - { name: KAFKA_CFG_NODE_ID, value: "0" }
+            - { name: KAFKA_CFG_PROCESS_ROLES, value: "controller,broker" }
+            - { name: KAFKA_CFG_CONTROLLER_QUORUM_VOTERS, value: "0@localhost:9093" }
+            - { name: KAFKA_CFG_LISTENERS, value: "PLAINTEXT://:9092,CONTROLLER://:9093" }
+            # Advertise the Service name so other pods resolve it correctly:
+            - { name: KAFKA_CFG_ADVERTISED_LISTENERS, value: "PLAINTEXT://kafka:9092" }
+            - { name: KAFKA_CFG_CONTROLLER_LISTENER_NAMES, value: "CONTROLLER" }
+            - { name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP, value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT" }
+            - { name: KAFKA_CFG_INTER_BROKER_LISTENER_NAME, value: "PLAINTEXT" }
+            - { name: ALLOW_PLAINTEXT_LISTENER, value: "yes" }
+            # Auto-create url-clicks on first use (fine for dev):
+            - { name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE, value: "true" }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: kafka }
+spec:
+  selector: { app: kafka }
+  ports: [{ port: 9092, targetPort: 9092 }]</code></pre>
+<div class="note gotcha"><span class="tag">Gotcha — advertised listeners</span>
+The single most common Kafka-on-k8s mistake. A broker tells clients which address to use via its
+<b>advertised</b> listener. If it advertises <code>localhost</code>, your other pods will try to reach
+Kafka on <i>their own</i> localhost and fail. It must advertise the Service name: <code>kafka:9092</code>.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="k8s-config"><span class="num">12</span> · Config & Secrets for the app</h2>
+<p>Give the Django pods their configuration: non-secret values in a ConfigMap, the DB password reused
+from the Postgres Secret.</p>
+<div class="task"><b>Your task:</b> write a ConfigMap with the DB host, Kafka bootstrap, and Django
+settings the app reads from the environment.</div>
+<details><summary>Solution — <code>k8s/app-config.yaml</code> <span class="kind">manifest</span></summary>
+<div class="body">
+<span class="path">k8s/app-config.yaml</span>
+<pre><code class="language-yaml">apiVersion: v1
+kind: ConfigMap
+metadata: { name: app-config }
+data:
+  POSTGRES_HOST: "postgres"               # the Service name from step 10
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "shortener"
+  POSTGRES_USER: "postgres"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"   # the Service name from step 11
+  ALLOWED_HOSTS: "*"
+  DJANGO_SETTINGS_MODULE: "config.settings"</code></pre>
+<div class="note why"><span class="tag">ConfigMap vs Secret</span>
+Same idea — inject environment — but Secrets are base64-encoded, access-controlled, and meant for
+sensitive values (passwords, tokens). Non-sensitive wiring like hostnames goes in a ConfigMap. The
+app code doesn't know or care which one a given variable came from.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="k8s-migrate"><span class="num">13</span> · Run migrations as a Job</h2>
+<p>Migrations should run <b>once</b> per deploy, not on every pod start. A Kubernetes <code>Job</code>
+runs a pod to completion — perfect for this.</p>
+<div class="task"><b>Your task:</b> write a Job that runs <code>python manage.py migrate</code> using your
+image, pulling env from the ConfigMap and Secret.</div>
+<details><summary>Solution — <code>k8s/migrate-job.yaml</code> <span class="kind">manifest</span></summary>
+<div class="body">
+<span class="path">k8s/migrate-job.yaml</span>
+<pre><code class="language-yaml">apiVersion: batch/v1
+kind: Job
+metadata: { name: migrate }
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: url-shortener:dev
+          imagePullPolicy: IfNotPresent
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: postgres-secret }</code></pre>
+<div class="note gotcha"><span class="tag">Gotcha — ordering</span>
+The Job will crash-loop until Postgres is actually accepting connections. That's fine — its
+<code>backoffLimit</code> retries. For a cleaner setup you'd add an init container that waits for
+<code>postgres:5432</code> before migrating. Re-run a Job by deleting and re-applying it.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="k8s-web"><span class="num">14</span> · Deploy the web app</h2>
+<p>The Django/gunicorn Deployment, fronted by a Service. This is the piece that serves the API and
+the redirects.</p>
+<div class="task"><b>Your task:</b> write a Deployment (2 replicas) + a Service named
+<code>web</code>, both reading config from the ConfigMap and Secret. Add a readiness probe.</div>
+<details><summary>Solution — <code>k8s/web.yaml</code> <span class="kind">manifest</span></summary>
+<div class="body">
+<span class="path">k8s/web.yaml</span>
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata: { name: web }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: web } }
+  template:
+    metadata: { labels: { app: web } }
+    spec:
+      containers:
+        - name: web
+          image: url-shortener:dev
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8000 }]
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: postgres-secret }
+          readinessProbe:
+            httpGet: { path: /api/shorten, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata: { name: web }
+spec:
+  selector: { app: web }
+  ports: [{ port: 80, targetPort: 8000 }]</code></pre>
+<div class="note why"><span class="tag">Why 2 replicas + a probe</span>
+Two replicas means Kubernetes load-balances redirects across pods and survives one dying. The
+readiness probe tells Kubernetes "don't send traffic until this pod can actually serve" — so a pod
+still booting or waiting on the DB won't get requests routed to it.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="k8s-worker"><span class="num">15</span> · Deploy the consumer</h2>
+<p>Same image, different command. No Service — it talks <i>out</i> to Kafka and Postgres, nothing
+talks <i>to</i> it.</p>
+<div class="task"><b>Your task:</b> write a Deployment that runs <code>manage.py consume_clicks</code>.
+Then try scaling it to 3 and watch Kafka rebalance.</div>
+<details><summary>Solution — <code>k8s/consumer.yaml</code> <span class="kind">manifest</span></summary>
+<div class="body">
+<span class="path">k8s/consumer.yaml</span>
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata: { name: consumer }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: consumer } }
+  template:
+    metadata: { labels: { app: consumer } }
+    spec:
+      containers:
+        - name: consumer
+          image: url-shortener:dev
+          imagePullPolicy: IfNotPresent
+          command: ["python", "manage.py", "consume_clicks"]
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef: { name: postgres-secret }</code></pre>
+<pre><code class="language-bash"># Watch a consumer-group rebalance happen live:
+kubectl scale deployment/consumer --replicas=3
+kubectl logs -f deployment/consumer --all-pods=true | grep -i "click\|rebalance"</code></pre>
+<div class="note why"><span class="tag">The payoff</span>
+With one partition (the dev default) only one of the three pods does work — the others sit idle, ready
+to take over instantly if it dies (free failover). Bump <code>url-clicks</code> to 3 partitions and all
+three pods process in parallel. <b>That</b> is the lesson the whole project was built to deliver.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="k8s-ingress"><span class="num">16</span> · Expose it & test end-to-end</h2>
+<p>Apply everything in order, then reach the <code>web</code> Service from your laptop with a quick
+port-forward (simpler than Ingress for a local cluster).</p>
+<div class="task"><b>Your task:</b> apply all manifests, port-forward the web Service, and run the same
+create + redirect test you did locally — but now it's flowing through Kafka and a separate consumer
+pod inside Kubernetes.</div>
+<details><summary>Solution — apply, forward, verify <span class="kind">commands</span></summary>
+<div class="body">
+<pre><code class="language-bash"># Apply infra first, then the app
+kubectl apply -f k8s/postgres.yaml
+kubectl apply -f k8s/kafka.yaml
+kubectl apply -f k8s/app-config.yaml
+kubectl wait --for=condition=available deploy/postgres deploy/kafka --timeout=120s
+
+kubectl apply -f k8s/migrate-job.yaml
+kubectl wait --for=condition=complete job/migrate --timeout=120s
+
+kubectl apply -f k8s/web.yaml -f k8s/consumer.yaml
+
+# See it all running
+kubectl get pods
+
+# Reach the web Service locally
+kubectl port-forward service/web 8000:80 &
+
+# End-to-end test — now spanning 4 services across the cluster
+curl -X POST http://localhost:8000/api/shorten \
+  -H "Content-Type: application/json" -d '{"original_url":"https://strimzi.io"}'
+curl -L http://localhost:8000/&lt;code-from-above&gt;
+
+# Confirm the consumer updated the count via Kafka
+kubectl logs deployment/consumer | tail
+curl http://localhost:8000/api/shorten -X POST -H "Content-Type: application/json" \
+  -d '{"original_url":"https://x"}'   # then GET /&lt;code&gt; and re-check click_count</code></pre>
+<div class="note gotcha"><span class="tag">Debugging toolkit</span>
+When something's wrong: <code>kubectl get pods</code> (status), <code>kubectl describe pod &lt;name&gt;</code>
+(events — image pull/scheduling issues), <code>kubectl logs &lt;name&gt;</code> (app errors), and
+<code>kubectl exec -it &lt;name&gt; -- sh</code> (poke around inside). 90% of k8s debugging is those four.</div>
+</div></details>
+
+<!-- ============================================================= -->
+<h2 id="recap"><span class="num">17</span> · Recap, extensions & cleanup</h2>
+<p>You just built and orchestrated a four-service distributed system. Make sure you can explain each
+of these in your own words — that's the real deliverable:</p>
+<ul class="clean">
+  <li><b>Django/DRF:</b> models, migrations, serializers, class-based & API views, URL routing.</li>
+  <li><b>Postgres:</b> stateful workload, PVC-backed storage, atomic <code>F()</code> updates.</li>
+  <li><b>Kafka:</b> producers, a topic, keys → partitions, and consumer groups for scaling & fan-out.</li>
+  <li><b>Kubernetes:</b> Deployment, Service (DNS + load-balancing), ConfigMap, Secret, Job, probes,
+    and one image running two roles.</li>
+</ul>
+<h3>Extensions to deepen each skill</h3>
+<ul class="clean">
+  <li>Add a second consumer group (<code>geo-enricher</code>) that looks up IP → country — feel fan-out.</li>
+  <li>Bump <code>url-clicks</code> to 3 partitions and prove parallel consumption with 3 replicas.</li>
+  <li>Add a <code>GET /api/stats/&lt;code&gt;</code> endpoint and a tiny dashboard.</li>
+  <li>Replace the raw Kafka manifest with the <b>Strimzi</b> operator (the production way).</li>
+  <li>Add a <b>HorizontalPodAutoscaler</b> on the web Deployment driven by CPU.</li>
+  <li>Swap port-forward for a real <b>Ingress</b> (install ingress-nginx in kind).</li>
+</ul>
+<details><summary>Teardown <span class="kind">commands</span></summary>
+<div class="body">
+<pre><code class="language-bash"># Nuke the whole cluster (fastest)
+kind delete cluster --name urlshort
+
+# Or just the app namespace
+kubectl delete namespace urlshort
+
+# Local dev containers
+docker rm -f pg kafka</code></pre>
+</div></details>
+
+<footer>
+  Built as a self-paced learning guide · Django · PostgreSQL · Apache Kafka · Kubernetes.<br>
+  Tip: hit <kbd>Expand all</kbd> once you've attempted a section to review every solution at once.
+</footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+  // Syntax highlighting (degrades gracefully to styled plain code if CDN is blocked)
+  try { if (window.hljs) hljs.highlightAll(); } catch (e) {}
+
+  const all = () => document.querySelectorAll("details");
+  document.getElementById("expandAll").onclick = () => all().forEach(d => d.open = true);
+  document.getElementById("collapseAll").onclick = () => all().forEach(d => d.open = false);
+</script>
+</body>
+</html>
