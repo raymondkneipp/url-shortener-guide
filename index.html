@@ -168,7 +168,7 @@ notices</b>. That decoupling is the entire point of Kafka, and a URL shortener m
 <h2 id="prereq"><span class="num">1</span> · Prerequisites</h2>
 <p>Install these once. The goal of this step is just a working toolbelt; nothing to "solve" yet.</p>
 <ul class="clean">
-  <li><b>Python 3.12+</b> and <code>pip</code></li>
+  <li><b>Python 3.12+</b> and <a href="https://docs.astral.sh/uv/"><code>uv</code></a> — fast package & venv manager (replaces pip/venv)</li>
   <li><b>Docker Desktop</b> (or Docker Engine) — runs containers and the local cluster</li>
   <li><b>kubectl</b> — the Kubernetes CLI</li>
   <li><b>kind</b> (Kubernetes-in-Docker) or <b>minikube</b> — a throwaway local cluster</li>
@@ -176,13 +176,15 @@ notices</b>. That decoupling is the entire point of Kafka, and a URL shortener m
 </ul>
 <details><summary>Install commands (macOS / Homebrew) <span class="kind">commands</span></summary>
 <div class="body">
-<pre><code class="language-bash"># Core tools
-brew install python kubectl kind k9s
+<pre><code class="language-bash"># Core tools (uv = fast Python package & venv manager from Astral)
+brew install python uv kubectl kind k9s
+# No Homebrew? curl -LsSf https://astral.sh/uv/install.sh | sh
 # Docker Desktop (cask) — or install from docker.com
 brew install --cask docker
 
 # Verify
 python3 --version
+uv --version
 docker version
 kubectl version --client
 kind version</code></pre>
@@ -197,14 +199,16 @@ and register DRF and the app in settings. Try it from memory before peeking.</di
 <details><summary>Solution — project setup <span class="kind">commands + code</span></summary>
 <div class="body">
 <pre><code class="language-bash">mkdir url-shortener && cd url-shortener
-python3 -m venv .venv && source .venv/bin/activate
+# uv creates pyproject.toml and manages the .venv + a lockfile for you.
+uv init --bare --python 3.12
 
-pip install "Django>=5.0" djangorestframework psycopg2-binary confluent-kafka gunicorn
-pip freeze > requirements.txt
+# Deps live in pyproject.toml + uv.lock — no requirements.txt needed.
+uv add "Django>=5.0" djangorestframework psycopg2-binary confluent-kafka gunicorn
 
-# Project named "config" so settings live at config/settings.py
-django-admin startproject config .
-python manage.py startapp shortener</code></pre>
+# "uv run" executes inside the project's managed environment (auto-syncs first).
+# Project named "config" so settings live at config/settings.py.
+uv run django-admin startproject config .
+uv run python manage.py startapp shortener</code></pre>
 <span class="path">config/settings.py — add to INSTALLED_APPS</span>
 <pre><code class="language-python">INSTALLED_APPS = [
     "django.contrib.admin",
@@ -372,10 +376,10 @@ docker run -d --name pg \
   -p 5432:5432 postgres:16
 
 # 2. Create tables
-python manage.py migrate
+uv run python manage.py migrate
 
 # 3. Run the dev server
-python manage.py runserver
+uv run python manage.py runserver
 
 # 4. In another terminal: create a short link
 curl -X POST http://localhost:8000/api/shorten \
@@ -514,7 +518,7 @@ click_count + 1</code>, which is atomic.</div>
 docker run -d --name kafka -p 9092:9092 apache/kafka:3.8.0
 
 # Terminal A: run the consumer
-python manage.py consume_clicks
+uv run python manage.py consume_clicks
 
 # Terminal B: hit a short link a few times, then check the count
 curl -L http://localhost:8000/aZ3k9Qw
@@ -534,14 +538,25 @@ they run (<code>gunicorn</code> vs <code>manage.py consume_clicks</code>).</p>
 <span class="path">Dockerfile</span>
 <pre><code class="language-docker">FROM python:3.12-slim
 
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+# Bring in the uv binary from its official image (no pip install needed).
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 WORKDIR /app
 
-# Install deps first so this layer caches across code changes.
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install deps from the lockfile FIRST so this layer caches across code edits.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 
+# App code (it's not an installable package, so just copy it in).
 COPY . .
+
+# Put the managed venv on PATH so python/gunicorn resolve directly —
+# this is why the k8s command arrays can still call "python" / "gunicorn".
+ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8000
 # Default command = web. The consumer Deployment overrides this.
